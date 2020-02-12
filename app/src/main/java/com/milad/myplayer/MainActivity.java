@@ -4,65 +4,110 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.PersistableBundle;
 import android.view.View;
-import android.widget.ImageView;
-import android.widget.SeekBar;
-import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.databinding.DataBindingUtil;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
-import com.milad.myplayer.databinding.ViewPlayerBinding;
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
 
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
 
+    private ArrayList<Song> songs;
+    private audioStore store;
+    private ConstraintLayout bottom_sheet;
+    private BottomSheetBehavior sheetBehavior;
+
     public static final String Broadcast_PLAY_NEW_AUDIO = "PlayNewAudio";
     private MediaPlayerService player;
     boolean serviceBound = false;
 
-    audioStore store;
-
-    ViewPlayerBinding mBinding;
-    ArrayList<Song> songs;
-    int cTime = 0;
-    SeekBar seekBar;
-    TextView songCurrentDurationLabel, songTotalDurationLabel;
-    ImageView playPause;
-
-    Utilities utils;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.view_player);
-        mBinding = DataBindingUtil.setContentView(this, R.layout.view_player);
-        seekBar = mBinding.seekBar;
-        playPause = mBinding.playPause;
-        songCurrentDurationLabel = mBinding.currentDuration;
-        songTotalDurationLabel = mBinding.totalDuration;
+        setContentView(R.layout.audio_list);
 
-        store = audioStore.getInstance(getApplicationContext());
-        loadAudio();
+        initBottomSheet();
+        initAudio();
+        initRecyclerView();
+    }
 
-        playPause.setOnClickListener(new View.OnClickListener() {
+    private void initBottomSheet() {
+        bottom_sheet = findViewById(R.id.bottom_sheet);
+        sheetBehavior = BottomSheetBehavior.from(bottom_sheet);
+        sheetBehavior.setBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
             @Override
-            public void onClick(View v) {
-                playAudio(3);
+            public void onStateChanged(@NonNull View bottomSheet, int newState) {
+                switch (newState) {
+                    case BottomSheetBehavior.STATE_HIDDEN:
+                        break;
+                    case BottomSheetBehavior.STATE_EXPANDED: {
+//                        Toast.makeText(MainActivity.this, "Close Sheet", Toast.LENGTH_SHORT).show();
+                    }
+                    break;
+                    case BottomSheetBehavior.STATE_COLLAPSED: {
+//                        Toast.makeText(MainActivity.this, "Expand Sheet", Toast.LENGTH_SHORT).show();
+                    }
+                    break;
+                    case BottomSheetBehavior.STATE_DRAGGING:
+                        break;
+                    case BottomSheetBehavior.STATE_SETTLING:
+                        break;
+                }
+            }
+
+            @Override
+            public void onSlide(@NonNull View bottomSheet, float slideOffset) {
             }
         });
+    }
+
+    private void initAudio() {
+        findSong song = new findSong();
+        songs = song.find(getApplicationContext());
+        store = audioStore.getInstance(getApplicationContext());
+        store.storeAudio(songs);
+    }
+
+    private void initRecyclerView() {
+        if (songs.size() > 0) {
+            RecyclerView recyclerView = findViewById(R.id.recyclerView);
+            RecyclerView_Adapter adapter = new RecyclerView_Adapter(songs, getApplication());
+            recyclerView.setAdapter(adapter);
+            recyclerView.setLayoutManager(new LinearLayoutManager(this));
+            recyclerView.addOnItemTouchListener(new CustomTouchListener(this, new onItemClickListener() {
+                @Override
+                public void onClick(View view, int index) {
+                    playAudio(index);
+                }
+            }));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                recyclerView.setOnScrollChangeListener(new View.OnScrollChangeListener() {
+                    @Override
+                    public void onScrollChange(View v, int scrollX, int scrollY, int oldScrollX, int oldScrollY) {
+                        sheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+                    }
+                });
+            }
+        }
     }
 
     private void playAudio(int index) {
         if (!serviceBound) {
             store.storeAudioIndex(index);
-            Intent playerIntent = new Intent(this, MediaPlayerService.class);
+            Intent playerIntent = new Intent(getApplicationContext(), MediaPlayerService.class);
             startService(playerIntent);
             bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE);
+            sheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
         } else {
             store.storeAudioIndex(index);
 
@@ -70,6 +115,7 @@ public class MainActivity extends AppCompatActivity {
             //Send a broadcast to the service -> PLAY_NEW_AUDIO
             Intent broadcastIntent = new Intent(Broadcast_PLAY_NEW_AUDIO);
             sendBroadcast(broadcastIntent);
+            sheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
         }
     }
 
@@ -100,13 +146,6 @@ public class MainActivity extends AppCompatActivity {
             serviceBound = false;
         }
     };
-
-    private void loadAudio() {
-        findSong song = new findSong();
-        songs = song.find(getApplicationContext());
-
-        store.storeAudio(songs);
-    }
 
     @Override
     protected void onDestroy() {

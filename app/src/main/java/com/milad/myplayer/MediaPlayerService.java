@@ -57,7 +57,7 @@ public class MediaPlayerService extends Service implements
 
         // TODO: 2/11/20 call state listener
         //ACTION_AUDIO_BECOMING_NOISY -- change in audio outputs -- BroadcastReceiver
-        registerBecomingNoisyReceiver();
+        // TODO: 2/12/20_3:16 PM  registerBecomingNoisyReceiver();
         //Listen for new Audio to play -- BroadcastReceiver
         register_playNewAudio();
     }
@@ -228,8 +228,6 @@ public class MediaPlayerService extends Service implements
                 stopSelf();
             }
 
-            //A PLAY_NEW_AUDIO action received
-            //reset mediaPlayer to play the new Audio
             stopMedia();
             player.reset();
             initMediaPlayer();
