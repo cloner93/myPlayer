@@ -8,6 +8,13 @@
         <variable
             name="handlers"
             type="com.milad.myplayer.MainActivity.MyHandlers" />
+
+        <variable
+            name="song"
+            type="com.milad.myplayer.Song" />
+
+        <import type="com.milad.myplayer.Utilities" />
+
     </data>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -16,7 +23,8 @@
         android:layout_height="wrap_content"
         android:background="#999999"
         app:behavior_hideable="false"
-        app:behavior_peekHeight="90dp"
+
+        app:behavior_peekHeight="70dp"
         app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
 
         <LinearLayout
@@ -102,20 +110,21 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
-            android:layout_marginRight="8dp"
-            android:text="00:00"
+            android:text="@{Utilities.milli_to_time(song.duration)}"
             android:textColor="#FFFFFF"
             app:layout_constraintBottom_toBottomOf="@+id/seekBar"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHorizontal_bias="0.5"
             app:layout_constraintStart_toEndOf="@+id/seekBar"
-            app:layout_constraintTop_toTopOf="@+id/seekBar" />
+            app:layout_constraintTop_toTopOf="@+id/seekBar"
+            tools:text="00:00" />
 
         <TextView
             android:id="@+id/title"
             android:layout_width="wrap_content"
             android:layout_height="0dp"
             android:layout_marginTop="8dp"
+            android:text="@{song.title}"
             android:textAppearance="@style/TextAppearance.AppCompat.Large"
             android:textColor="#FFFFFF"
             app:layout_constraintEnd_toEndOf="parent"
@@ -128,6 +137,7 @@
             android:layout_width="wrap_content"
             android:layout_height="0dp"
             android:layout_marginTop="4dp"
+            android:text="@{song.artistName}"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textColor="#FFFFFF"
             app:layout_constraintEnd_toEndOf="@+id/title"

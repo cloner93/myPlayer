@@ -1,8 +1,11 @@
 package com.milad.myplayer;
 
-class Utilities {
+import androidx.databinding.InverseMethod;
 
-    String milli_to_time(long millisecond) {
+public class Utilities {
+
+    @InverseMethod("milli_to_time")
+    public static String milli_to_time(int millisecond) {
         String hours = String.valueOf((int) (millisecond / (60 * 60 * 1000)));
         String minutes = String.valueOf(((int) (millisecond % (60 * 60 * 1000) / (60 * 1000))));
         String seconds = String.valueOf(((int) ((millisecond % (60 * 60 * 1000)) % (60 * 1000) / 1000)));

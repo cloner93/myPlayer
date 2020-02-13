@@ -39,20 +39,8 @@ public class MainActivity extends AppCompatActivity {
     boolean serviceBound = false;
     public MyHandlers handlers;
     int rotationAngle = 0;
+    int lastSongPlayed = -1;
     //</editor-fold>
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        mBinding = DataBindingUtil.setContentView(this, R.layout.audio_list);
-        handlers = new MyHandlers();
-        mBinding.bottomSheet.setHandlers(handlers);
-
-        initBottomSheet();
-        initAudio();
-        initRecyclerView();
-    }
 
     //<editor-fold desc="init">
     private void initBottomSheet() {
@@ -91,6 +79,7 @@ public class MainActivity extends AppCompatActivity {
         songs = song.find(getApplicationContext());
         store = audioStore.getInstance(getApplicationContext());
         store.storeAudio(songs);
+        lastSongPlayed = store.loadAudioIndex();
     }
 
     private void initRecyclerView() {
@@ -115,7 +104,30 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
+    private void initPlayerView(int index) {
+        if (index == -1) {
+            return;
+        }
+
+        Song song = songs.get(index);
+        mBinding.bottomSheet.setSong(song);
+    }
     //</editor-fold>
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        mBinding = DataBindingUtil.setContentView(this, R.layout.audio_list);
+        handlers = new MyHandlers();
+        mBinding.bottomSheet.setHandlers(handlers);
+
+        initBottomSheet();
+        initAudio();
+        initRecyclerView();
+        initPlayerView(lastSongPlayed);
+    }
 
     void rotateExpandIcon(int radius) {
         rotationAngle = radius == 0 ? 180 : 0;  //toggle
@@ -127,60 +139,20 @@ public class MainActivity extends AppCompatActivity {
     private void playAudio(int index) {
         if (!serviceBound) {
             store.storeAudioIndex(index);
+            initPlayerView(index);
             Intent playerIntent = new Intent(getApplicationContext(), MediaPlayerService.class);
             startService(playerIntent);
             bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE);
             sheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
         } else {
             store.storeAudioIndex(index);
+            initPlayerView(index);
 
             //Service is active
             //Send a broadcast to the service -> PLAY_NEW_AUDIO
             Intent broadcastIntent = new Intent(Broadcast_PLAY_NEW_AUDIO);
             sendBroadcast(broadcastIntent);
             sheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
-        }
-    }
-
-    //<editor-fold desc="InstanceState">
-    @Override
-    public void onSaveInstanceState(Bundle outState, PersistableBundle outPersistentState) {
-        super.onSaveInstanceState(outState, outPersistentState);
-        outState.putBoolean("serviceStatus", serviceBound);
-    }
-
-    @Override
-    protected void onRestoreInstanceState(Bundle savedInstanceState) {
-        super.onRestoreInstanceState(savedInstanceState);
-        serviceBound = savedInstanceState.getBoolean("serviceStatus");
-    }
-    //</editor-fold>
-
-    //<editor-fold desc="ServiceConnection">
-    //Binding this Client to the AudioPlayer Service
-    private ServiceConnection serviceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            // We've bound to LocalService, cast the IBinder and get LocalService instance
-            MediaPlayerService.LocalBinder binder = (MediaPlayerService.LocalBinder) service;
-            player = binder.getService();
-            serviceBound = true;
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            serviceBound = false;
-        }
-    };
-    //</editor-fold>
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (serviceBound) {
-            unbindService(serviceConnection);
-            //service is active
-            player.stopSelf();
         }
     }
 
@@ -221,4 +193,46 @@ public class MainActivity extends AppCompatActivity {
         }
     }
     //</editor-fold>
+
+    //<editor-fold desc="ServiceConnection">
+    //Binding this Client to the AudioPlayer Service
+    private ServiceConnection serviceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            // We've bound to LocalService, cast the IBinder and get LocalService instance
+            MediaPlayerService.LocalBinder binder = (MediaPlayerService.LocalBinder) service;
+            player = binder.getService();
+            serviceBound = true;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            serviceBound = false;
+        }
+    };
+    //</editor-fold>
+
+    //<editor-fold desc="InstanceState">
+    @Override
+    public void onSaveInstanceState(Bundle outState, PersistableBundle outPersistentState) {
+        super.onSaveInstanceState(outState, outPersistentState);
+        outState.putBoolean("serviceStatus", serviceBound);
+    }
+
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+        serviceBound = savedInstanceState.getBoolean("serviceStatus");
+    }
+    //</editor-fold>
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (serviceBound) {
+            unbindService(serviceConnection);
+            //service is active
+            player.stopSelf();
+        }
+    }
 }
