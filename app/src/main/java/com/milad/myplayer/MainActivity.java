@@ -8,20 +8,27 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.PersistableBundle;
+import android.util.Log;
 import android.view.View;
+import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.databinding.DataBindingUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
+import com.milad.myplayer.databinding.AudioListBinding;
 
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
 
+    //<editor-fold desc="variable">
+    private static final String TAG = "tag";
+    private AudioListBinding mBinding;
     private ArrayList<Song> songs;
     private audioStore store;
     private ConstraintLayout bottom_sheet;
@@ -30,17 +37,24 @@ public class MainActivity extends AppCompatActivity {
     public static final String Broadcast_PLAY_NEW_AUDIO = "PlayNewAudio";
     private MediaPlayerService player;
     boolean serviceBound = false;
+    public MyHandlers handlers;
+    int rotationAngle = 0;
+    //</editor-fold>
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.audio_list);
+
+        mBinding = DataBindingUtil.setContentView(this, R.layout.audio_list);
+        handlers = new MyHandlers();
+        mBinding.bottomSheet.setHandlers(handlers);
 
         initBottomSheet();
         initAudio();
         initRecyclerView();
     }
 
+    //<editor-fold desc="init">
     private void initBottomSheet() {
         bottom_sheet = findViewById(R.id.bottom_sheet);
         sheetBehavior = BottomSheetBehavior.from(bottom_sheet);
@@ -51,11 +65,12 @@ public class MainActivity extends AppCompatActivity {
                     case BottomSheetBehavior.STATE_HIDDEN:
                         break;
                     case BottomSheetBehavior.STATE_EXPANDED: {
-//                        Toast.makeText(MainActivity.this, "Close Sheet", Toast.LENGTH_SHORT).show();
+                        rotateExpandIcon(0);
+                        break;
                     }
-                    break;
                     case BottomSheetBehavior.STATE_COLLAPSED: {
-//                        Toast.makeText(MainActivity.this, "Expand Sheet", Toast.LENGTH_SHORT).show();
+                        rotateExpandIcon(180);
+                        // TODO: 2/13/20_4:27 PM -> change bottom sheet top view
                     }
                     break;
                     case BottomSheetBehavior.STATE_DRAGGING:
@@ -100,6 +115,14 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+    //</editor-fold>
+
+    void rotateExpandIcon(int radius) {
+        rotationAngle = radius == 0 ? 180 : 0;  //toggle
+
+        ImageView image = findViewById(R.id.expand);
+        image.animate().rotation(rotationAngle).setDuration(200).start();
+    }
 
     private void playAudio(int index) {
         if (!serviceBound) {
@@ -119,6 +142,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    //<editor-fold desc="InstanceState">
     @Override
     public void onSaveInstanceState(Bundle outState, PersistableBundle outPersistentState) {
         super.onSaveInstanceState(outState, outPersistentState);
@@ -130,7 +154,9 @@ public class MainActivity extends AppCompatActivity {
         super.onRestoreInstanceState(savedInstanceState);
         serviceBound = savedInstanceState.getBoolean("serviceStatus");
     }
+    //</editor-fold>
 
+    //<editor-fold desc="ServiceConnection">
     //Binding this Client to the AudioPlayer Service
     private ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
@@ -146,6 +172,7 @@ public class MainActivity extends AppCompatActivity {
             serviceBound = false;
         }
     };
+    //</editor-fold>
 
     @Override
     protected void onDestroy() {
@@ -156,4 +183,42 @@ public class MainActivity extends AppCompatActivity {
             player.stopSelf();
         }
     }
+
+    //<editor-fold desc="Player Click Listener">
+    public class MyHandlers implements playerOnClick {
+        @Override
+        public void play() {
+            Log.d(TAG, "play: ");
+        }
+
+        @Override
+        public void nextSong() {
+
+        }
+
+        @Override
+        public void previousSong() {
+
+        }
+
+        @Override
+        public void star() {
+
+        }
+
+        @Override
+        public void listItem() {
+
+        }
+
+        @Override
+        public void showBottomSheet() {
+            if (sheetBehavior.getState() == BottomSheetBehavior.STATE_COLLAPSED) {
+                sheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+            } else if (sheetBehavior.getState() == BottomSheetBehavior.STATE_EXPANDED) {
+                sheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+            }
+        }
+    }
+    //</editor-fold>
 }
