@@ -27,7 +27,8 @@ public class MediaPlayerService extends Service implements
         MediaPlayer.OnPreparedListener,
         MediaPlayer.OnBufferingUpdateListener,
         MediaPlayer.OnSeekCompleteListener,
-        MediaPlayer.OnInfoListener {
+
+        AudioManager.OnAudioFocusChangeListener {
 
     public static final String ACTION_PLAY = "ACTION_PLAY";
     public static final String ACTION_PAUSE = "ACTION_PAUSE";
@@ -51,13 +52,17 @@ public class MediaPlayerService extends Service implements
 
     private final IBinder iBinder = new LocalBinder();
 
+    private AudioManager audioManager;
+
     @Override
     public void onCreate() {
         super.onCreate();
 
         // TODO: 2/11/20 call state listener
-        //ACTION_AUDIO_BECOMING_NOISY -- change in audio outputs -- BroadcastReceiver
-        // TODO: 2/12/20_3:16 PM  registerBecomingNoisyReceiver();
+
+        //ACTION_AUDIO_BECOMING_NOISY -- Change of audio outputs (headphone removed) -- BroadcastReceiver
+        registerBecomingNoisyReceiver();
+
         //Listen for new Audio to play -- BroadcastReceiver
         register_playNewAudio();
     }
@@ -91,8 +96,11 @@ public class MediaPlayerService extends Service implements
             stopSelf();
         }
 
-        // TODO: Request audio focus
-
+        //Request audio focus
+        if (!requestAudioFocus()) {
+            //Could not gain focus
+            stopSelf();
+        }
         if (mediaSessionManager == null) {
             try {
                 initMediaSession();
@@ -192,7 +200,9 @@ public class MediaPlayerService extends Service implements
             stopMedia();
             player.release();
         }
-        // TODO: 2/12/20  removeAudioFocus();
+
+        removeAudioFocus();
+
         // TODO: 2/12/20  Disable the PhoneStateListener
 
         // TODO: 2/12/20  removeNotification();
@@ -203,6 +213,58 @@ public class MediaPlayerService extends Service implements
         audioStore store = audioStore.getInstance(getApplicationContext());
         store.clearCachedAudioPlaylist();
     }
+
+    //<editor-fold desc="Handling Audio Focus">
+    @Override
+    public void onAudioFocusChange(int focusState) {
+        //Invoked when the audio focus of the system is updated.
+        switch (focusState) {
+            case AudioManager.AUDIOFOCUS_GAIN:
+                Log.d("tag", "onAudioFocusChange: AUDIOFOCUS_GAIN");
+
+                // resume playback
+                if (player == null)
+                    initMediaPlayer();
+                else if (!player.isPlaying())
+                    player.start();
+                player.setVolume(1.0f, 1.0f);
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS:
+                Log.d("tag", "onAudioFocusChange: AUDIOFOCUS_LOSS");
+
+                if (player.isPlaying())
+                    player.pause();
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                Log.d("tag", "onAudioFocusChange: AUDIOFOCUS_LOSS_TRANSIENT");
+
+                if (player.isPlaying())
+                    player.pause();
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                Log.d("tag", "onAudioFocusChange: AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK");
+
+                if (player.isPlaying())
+                    player.setVolume(0.1f, 0.1f);
+                break;
+        }
+    }
+
+    private boolean requestAudioFocus() {
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        int result = audioManager.requestAudioFocus(this, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+        if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            //Focus gained
+            return true;
+        }
+        //Could not gain focus
+        return false;
+    }
+
+    private void removeAudioFocus() {
+        audioManager.abandonAudioFocus(this);
+    }
+    //</editor-fold>
 
     public class LocalBinder extends Binder {
         public MediaPlayerService getService() {
@@ -258,7 +320,6 @@ public class MediaPlayerService extends Service implements
         player.setOnPreparedListener(this);
         player.setOnBufferingUpdateListener(this);
         player.setOnSeekCompleteListener(this);
-        player.setOnInfoListener(this);
 
         player.reset();
         player.setAudioStreamType(AudioManager.STREAM_MUSIC);
@@ -342,11 +403,6 @@ public class MediaPlayerService extends Service implements
     @Override
     public void onSeekComplete(MediaPlayer mp) {
 
-    }
-
-    @Override
-    public boolean onInfo(MediaPlayer mp, int what, int extra) {
-        return false;
     }
     //</editor-fold>
 
